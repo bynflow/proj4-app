@@ -1,0 +1,104 @@
+name: pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      # Fetch repository content for this workflow run
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install a deterministic Python runtime
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # Install dependencies (requirements.txt is the source of truth)
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Run unit tests (fast feedback, PR gate)
+      - name: Run tests
+        run: pytest -q
+
+  docker:
+    name: docker
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Enable BuildKit/buildx for reproducible and efficient builds
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Compute image tags:
+      # - short SHA for immutable releases
+      # - latest only on the default branch (main)
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/proj3-app
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Authenticate to GHCR only when we are going to push (main push)
+      - name: Login to GHCR (main only)
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # PR: build only (no push)
+      # main: build + push (publishes immutable tag + optional latest)
+      - name: Build (PR) or Build+Push (main)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Compute immutable image tag from the current commit SHA (short form)
+      # Example: sha-abc1234
+      - name: Set image tag
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      # Update the dev overlay to point to the new immutable image tag
+      # This is the key GitOps step: we change the desired state in Git
+      - name: Update dev overlay image tag
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          sed -i "s|newTag: .*|newTag: ${IMAGE_TAG}|" k8s/overlays/dev/kustomization.yaml
+
+      # Commit and push the updated manifest back to the repository
+      # This triggers ArgoCD auto-sync, which deploys the new version to dev
+      - name: Commit updated dev overlay
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/dev/kustomization.yaml
+          git commit -m "ci: update dev image tag to ${IMAGE_TAG}" || echo "No changes to commit"
+          git push
