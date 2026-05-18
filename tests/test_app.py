@@ -30,14 +30,14 @@ def test_square_zero():
 def test_square_invalid_non_numeric():
     client = app.test_client()
     resp = client.post("/", data={"number": "abc"})
-    assert resp.status_code == 200
+    assert resp.status_code == 400
     assert b"Please enter a valid non-negative integer." in resp.data
 
 
 def test_square_empty_input():
     client = app.test_client()
     resp = client.post("/", data={"number": ""})
-    assert resp.status_code == 200
+    assert resp.status_code == 400
     assert b"Please enter a valid non-negative integer." in resp.data
 
 
