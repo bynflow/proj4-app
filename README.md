@@ -1,81 +1,213 @@
 # proj4-app
 
-Application repository for Project 4.
+Secure observable Flask application for a multi-repository GitOps Kubernetes platform.
 
-This repository contains:
+This repository contains the **application layer** of Project 4: application code, tests, CI, container build logic, image publishing, security scanning, and Prometheus instrumentation.
 
-* Flask application
-* tests
-* Docker build logic
-* CI pipeline
-* security scanning
-* Prometheus metrics instrumentation
+The Kubernetes environment and deployment governance are intentionally separated into a dedicated environment repository:
 
-The deployment and environment governance are intentionally separated into a dedicated environment repository:
+* [`proj4-env`](https://github.com/bynflow/proj4-env)
 
-* proj4-env
-
-This separation reflects a production-style GitOps architecture.
+This separation reflects a production-style GitOps model where application delivery and environment governance have different responsibilities.
 
 ---
 
-## Features
+## Project role
 
-* Flask application
-* `/health` endpoint
-* `/metrics` endpoint (Prometheus)
-* pytest test suite
-* Docker containerization
+`proj4-app` is responsible for:
+
+* Flask application source code
+* automated tests
+* Docker image build
+* immutable image publishing to GHCR
 * GitHub Actions CI
-* GHCR image publishing
-* Trivy image scanning
-* pip-audit dependency scanning
+* Trivy container image scanning
+* Python dependency scanning with `pip-audit`
+* Prometheus application metrics
+
+It does **not** own:
+
+* Kubernetes manifests
+* environment overlays
+* ArgoCD Applications
+* RBAC / NetworkPolicy / Ingress / TLS configuration
+* cluster-side deployment governance
+
+Those responsibilities belong to `proj4-env`.
+
+---
+
+## Architecture context
+
+```text
+Developer
+   |
+   | push code
+   v
+GitHub repository: proj4-app
+   |
+   | GitHub Actions
+   | - tests
+   | - Docker build
+   | - Trivy image scan
+   | - GHCR push
+   v
+GHCR image: ghcr.io/bynflow/proj4-app:sha-*
+   |
+   | selected by env repo
+   v
+proj4-env
+   |
+   | ArgoCD reconciliation
+   v
+Kubernetes runtime
+```
+
+The application repository produces immutable artifacts.
+The environment repository decides which artifact runs in each environment.
+
+---
+
+## Application endpoints
+
+| Endpoint   | Purpose                     |
+| ---------- | --------------------------- |
+| `/`        | Main Flask application page |
+| `/health`  | Health check endpoint       |
+| `/metrics` | Prometheus metrics endpoint |
 
 ---
 
 ## Observability
 
-The application exports Prometheus metrics through:
+The application exposes Prometheus-compatible metrics through:
 
 ```text
 /metrics
 ```
 
-Metrics include:
+Implemented metrics include:
 
 * request counters
-* latency histograms
 * error counters
+* request latency histograms
+
+This provides a first application-level observability baseline based on golden signals:
+
+* traffic
+* errors
+* latency
+
+Example metrics:
+
+```text
+app_requests_total
+app_errors_total
+app_request_duration_seconds
+```
 
 ---
 
-## Security
+## Security and DevSecOps baseline
 
-Implemented security baseline:
+This repository includes a minimal but real DevSecOps baseline:
 
-* container image scanning
-* dependency vulnerability scanning
-* Kubernetes RBAC
-* NetworkPolicy
-* Kubernetes Secrets baseline
+* Trivy image vulnerability scanning
+* GitHub Actions security gate for critical vulnerabilities
+* Python dependency audit using `pip-audit`
+* generated dependency lock file excluded from Git
+* immutable image tags based on commit SHA
+
+The security model distinguishes between:
+
+```text
+Image scan       → container artifact vulnerabilities
+Dependency scan  → Python library vulnerabilities
+Secret handling  → managed at Kubernetes runtime in proj4-env
+```
 
 ---
 
-## Repository role
+## CI pipeline
 
-This repository owns:
+The GitHub Actions pipeline performs:
 
-* application code
-* tests
-* build pipeline
-* container image
+1. Python test execution
+2. Docker image build
+3. immutable image tagging
+4. GHCR image publishing
+5. Trivy container image scan
 
-This repository does NOT own:
+Images are published using SHA-based tags:
 
-* Kubernetes environment manifests
-* deployment governance
-* cluster configuration
+```text
+ghcr.io/bynflow/proj4-app:sha-<commit>
+```
 
-Those responsibilities belong to:
+This enables deterministic promotion through the GitOps environment repository.
 
-* proj4-env
+---
+
+## Local development
+
+Run tests:
+
+```bash
+python -m pytest -q
+```
+
+Run the application locally:
+
+```bash
+python -m app.app
+```
+
+Check health:
+
+```bash
+curl http://localhost:5000/health
+```
+
+Check metrics:
+
+```bash
+curl http://localhost:5000/metrics
+```
+
+---
+
+## Repository structure
+
+```text
+proj4-app/
+├── app/
+│   ├── app.py
+│   └── templates/
+├── tests/
+├── Dockerfile
+├── requirements.txt
+├── pytest.ini
+└── .github/workflows/
+```
+
+---
+
+## What this repository demonstrates
+
+This repository demonstrates:
+
+* application-level CI
+* containerized Python application delivery
+* immutable artifact production
+* Prometheus application instrumentation
+* security scanning in CI
+* separation between application ownership and environment ownership
+* portfolio-grade DevOps workflow design
+
+---
+
+## Related repository
+
+Environment and GitOps governance repository:
+
+* [`proj4-env`](https://github.com/bynflow/proj4-env)
