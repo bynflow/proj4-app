@@ -79,19 +79,3 @@ This repository does NOT own:
 Those responsibilities belong to:
 
 * proj4-env
-
----
-
-## Commands
-
-```bash
-nano README.md
-```
-
-Paste this content into the file, then execute:
-
-```bash
-git add README.md
-git commit -m "docs: add proj4-app README"
-git push origin main
-```
