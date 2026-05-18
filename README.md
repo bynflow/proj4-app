@@ -1,4 +1,4 @@
-# proj4-app
+# gitops-observability-platform-app
 
 Secure observable Flask application for a multi-repository GitOps Kubernetes platform.
 
@@ -6,7 +6,7 @@ This repository contains the **application layer** of Project 4: application cod
 
 The Kubernetes environment and deployment governance are intentionally separated into a dedicated environment repository:
 
-* [`proj4-env`](https://github.com/bynflow/proj4-env)
+* [`gitops-observability-platform-env`](https://github.com/bynflow/gitops-observability-platform-env)
 
 This separation reflects a production-style GitOps model where application delivery and environment governance have different responsibilities.
 
@@ -14,7 +14,7 @@ This separation reflects a production-style GitOps model where application deliv
 
 ## Project role
 
-`proj4-app` is responsible for:
+`gitops-observability-platform-app` is responsible for:
 
 * Flask application source code
 * automated tests
@@ -33,7 +33,7 @@ It does **not** own:
 * RBAC / NetworkPolicy / Ingress / TLS configuration
 * cluster-side deployment governance
 
-Those responsibilities belong to `proj4-env`.
+Those responsibilities belong to `gitops-observability-platform-env`.
 
 ---
 
@@ -44,7 +44,7 @@ Developer
    |
    | push code
    v
-GitHub repository: proj4-app
+GitHub repository: gitops-observability-platform-app
    |
    | GitHub Actions
    | - tests
@@ -52,11 +52,11 @@ GitHub repository: proj4-app
    | - Trivy image scan
    | - GHCR push
    v
-GHCR image: ghcr.io/bynflow/proj4-app:sha-*
+GHCR image: ghcr.io/bynflow/gitops-observability-platform-app:sha-*
    |
    | selected by env repo
    v
-proj4-env
+gitops-observability-platform-env
    |
    | ArgoCD reconciliation
    v
@@ -123,7 +123,7 @@ The security model distinguishes between:
 ```text
 Image scan       → container artifact vulnerabilities
 Dependency scan  → Python library vulnerabilities
-Secret handling  → managed at Kubernetes runtime in proj4-env
+Secret handling  → managed at Kubernetes runtime in gitops-observability-platform-env
 ```
 
 ---
@@ -141,7 +141,7 @@ The GitHub Actions pipeline performs:
 Images are published using SHA-based tags:
 
 ```text
-ghcr.io/bynflow/proj4-app:sha-<commit>
+ghcr.io/bynflow/gitops-observability-platform-app:sha-<commit>
 ```
 
 This enables deterministic promotion through the GitOps environment repository.
@@ -179,7 +179,7 @@ curl http://localhost:5000/metrics
 ## Repository structure
 
 ```text
-proj4-app/
+gitops-observability-platform-app/
 ├── app/
 │   ├── app.py
 │   └── templates/
@@ -210,4 +210,4 @@ This repository demonstrates:
 
 Environment and GitOps governance repository:
 
-* [`proj4-env`](https://github.com/bynflow/proj4-env)
+* [`gitops-observability-platform-env`](https://github.com/bynflow/gitops-observability-platform-env)
